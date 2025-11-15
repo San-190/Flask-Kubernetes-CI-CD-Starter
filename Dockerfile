@@ -1,19 +1,19 @@
 FROM python:3.9-slim
 WORKDIR /app
 
-# Copia el archivo requirements.txt desde el directorio src del proyecto
-# local al directorio de trabajo (/app) dentro del contenedor.
+# Copy the requirements.txt file from the project's src directory
+# on the local machine to the working directory (/app) inside the container.
 COPY src/requirements.txt ./
 
-# Instalamos dependencias
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia todos los archivos y carpetas desde el directorio src del proyecto
-# local al directorio de trabajo (/app) dentro del contenedor.
+# Copy all files and folders from the project's src directory
+# on the local machine to the working directory (/app) inside the container.
 COPY src/ .
 
-# Expone el puerto en el que corre la aplicación
+# Expose the port the application runs on
 EXPOSE 5000
 
-# Comando para ejecutar la aplicación
+# Command to run the application
 CMD ["python", "app.py"]

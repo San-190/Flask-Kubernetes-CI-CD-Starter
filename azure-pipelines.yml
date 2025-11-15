@@ -1,73 +1,79 @@
-# Configura el disparador del pipeline para ejecutarse automáticamente
+# Configure pipeline trigger to run automatically
 trigger:
-  # Especifica las ramas que activarán el pipeline
+  # Specify branches that will trigger the pipeline
   branches:
     include:
-      - master  # Solo la rama 'master' activa el pipeline
-  # Especifica los paths que activarán el pipeline
+      - master  # Only the 'master' branch triggers the pipeline
+  # Specify paths that will trigger the pipeline
   paths:
     include:
-      - '*'  # Cualquier cambio en cualquier archivo activa el pipeline
+      - '*'  # Any change in any file triggers the pipeline
 
-# Define el pool de agentes que se usará para ejecutar el pipeline.
-# En este caso, se utiliza una máquina virtual con Ubuntu.
+# Define the agent pool used to run the pipeline.
+# In this case, a virtual machine with Ubuntu is used.
 pool:
   vmImage: ubuntu-latest
 
-# Define variables que se pueden usar en todo el pipeline.
+# Pipeline variables - replace the <> placeholders in Azure DevOps Pipeline variables
+# or set them in a Variable Group. Do NOT store secrets here.
 variables:
-  # Nombre de la imagen Docker que se generará.
-  imageName: mi-app-python
-  # Dirección del registro de contenedores en Azure Container Registry (ACR).
-  registry: proyectoredesslfj.azurecr.io
+  imageName: <IMAGE_NAME>            # e.g. my-app-python
+  registry: <ACR_REGISTRY>           # e.g. yourregistry.azurecr.io
+  # Note: containerRegistry below is the name of the Azure DevOps service connection
+  # configured to allow pushing to your ACR. Replace with your service connection name.
+  containerRegistryServiceConnection: <DOCKER_REGISTRY_SERVICE_CONNECTION>
 
 steps:
-  # Selecciona la versión de Python a usar en el agente
+  # Select the Python version to use on the agent
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.x'  # Especifica que se usará cualquier versión 3.x de Python
-    displayName: 'Seleccionar Python 3.x'
+      versionSpec: '3.x'  # Specify any 3.x Python version
+    displayName: 'Select Python 3.x'
 
-  # Instala y actualiza pip, luego instala las dependencias del proyecto localmente
+  # Install and upgrade pip, then install project dependencies locally
   - script: |
       python -m pip install --upgrade pip
       pip install -r src/requirements.txt
-    displayName: 'Instalar dependencias (local)'
+    displayName: 'Install dependencies (local)'
 
-  # Construye y sube la imagen Docker al Azure Container Registry (ACR)
+  # Build and push the Docker image to Azure Container Registry (ACR)
   - task: Docker@2
     displayName: 'Build & Push Docker image to ACR'
     inputs:
-      # Especifica la conexión al registro de contenedores configurada en Azure DevOps.
-      containerRegistry: 'dockerRegistryServiceConnection'
-      # Define el repositorio completo dentro del ACR (registro/nombre de la imagen).
+      # Use the service connection name (placeholder above)
+      containerRegistry: '$(containerRegistryServiceConnection)'
+      # Define the full repository inside the ACR (registry/image name).
       repository: '$(registry)/$(imageName)'
-      # Indica que se ejecutará el comando para construir y subir la imagen.
+      # Indicate the command to build and push the image.
       command: buildAndPush
-      # Especifica la ubicación del archivo `Dockerfile` que se usará para construir la imagen.
+      # Specify the Dockerfile location used to build the image.
       dockerfile: 'Dockerfile'
-      # Define las etiquetas que se asignarán a la imagen Docker.
+      # Define tags to assign to the Docker image.
       tags: |
         latest
         $(Build.BuildId)
 
-  # Actualiza el archivo deployment.yaml para que la imagen Docker referenciada use el tag del build actual
-  # Esta tarea usa `sed` para reemplazar la imagen en el archivo de configuración de Kubernetes.
+  # Update k8s/deployment.yml so the referenced Docker image uses the current build tag.
+  # The deployment file should contain placeholders (<ACR_REGISTRY>/<IMAGE_NAME>:<IMAGE_TAG>).
   - task: Bash@3
-    displayName: 'Actualizar deployment.yaml con tag del build'
+    displayName: 'Update deployment.yml with build tag'
     inputs:
       targetType: 'inline'
       script: |
-        sed -i "s|image: proyectoredesslfj.azurecr.io/proyectoredesslfj.azurecr.io/mi-app-python:.*|image: proyectoredesslfj.azurecr.io/proyectoredesslfj.azurecr.io/mi-app-python:$(Build.BuildId)|" k8s/deployment.yaml
+        # Replace the placeholder image entry in the k8s manifest with built image tag.
+        # This assumes the manifest contains a line like:
+        #   image: <ACR_REGISTRY>/<IMAGE_NAME>:<IMAGE_TAG>
+        sed -i "s|image: .*|image: $(registry)/$(imageName):$(Build.BuildId)|" k8s/deployment.yml
 
-  - task: Kubernetes@1  # Tarea de Kubernetes para interactuar con el clúster
-    displayName: 'Actualizar deployment en Kubernetes'  # Nombre descriptivo de la tarea en el pipeline
+  - task: Kubernetes@1  # Kubernetes task to interact with the cluster
+    displayName: 'Update deployment in Kubernetes'  # Descriptive task name in the pipeline
     inputs:
-      connectionType: 'Azure Resource Manager'  # Tipo de conexión, en este caso Azure Resource Manager
-      azureSubscriptionEndpoint: 'ConexiónAKSRedes'  # Nombre de la conexión al recurso de suscripción de Azure
-      azureResourceGroup: 'ProyectoRedes'  # Grupo de recursos de Azure donde está el clúster
-      kubernetesCluster: 'redes-proyecto'  # Nombre del clúster de Kubernetes
-      namespace: 'default'  # Namespace de Kubernetes donde se aplicará el deployment
-      command: 'apply'  # Comando a ejecutar, en este caso aplicar la configuración
-      useConfigurationFile: true  # Indica que se usará un archivo de configuración
-      configuration: 'k8s/deployment.yaml'  # Ruta al archivo de configuración de Kubernetes
+      connectionType: 'Azure Resource Manager'  # Connection type, here Azure Resource Manager
+      # Replace the placeholders below with your Azure DevOps subscription service connection
+      azureSubscriptionEndpoint: '<AZURE_SUBSCRIPTION_CONNECTION>'  # Name of the Azure subscription connection
+      azureResourceGroup: '<RESOURCE_GROUP>'   # Azure resource group where the cluster resides
+      kubernetesCluster: '<AKS_CLUSTER>'       # Kubernetes cluster name
+      namespace: 'default'  # Kubernetes namespace where the deployment will be applied
+      command: 'apply'  # Command to execute, here apply the configuration
+      useConfigurationFile: true  # Indicates that a configuration file will be used
+      configuration: 'k8s/deployment.yml'  # Path to the Kubernetes configuration file

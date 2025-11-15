@@ -1,0 +1,28 @@
+# Specifies the Kubernetes API version used for the Deployment resource
+apiVersion: apps/v1
+# Indicates that this manifest describes a Deployment
+kind: Deployment
+# Resource metadata, such as the deployment name
+metadata:
+  name: mi-app-python
+spec:
+  replicas: 2  # Number of replicas (pods) to run
+  selector:
+    matchLabels:
+      app: mi-app-python  # Selector to identify pods managed by this deployment
+  template:
+    metadata:
+      labels:
+        app: mi-app-python  # Label assigned to pods created by this deployment
+    spec:
+      containers:
+        - name: contenedor-python  # Container name inside the pod
+          # Replace placeholders before applying, or let CI replace the <IMAGE_TAG> placeholder.
+          # Example final value: yourregistry.azurecr.io/mi-app-python:123
+          image: <ACR_REGISTRY>/<IMAGE_NAME>:<IMAGE_TAG>  # Docker image placeholder
+          imagePullPolicy: Always  # Policy to fetch the image (always download the latest)
+          ports:
+            - containerPort: 5000  # Port exposed by the container
+      imagePullSecrets:
+        # Set this to the Kubernetes secret name that provides ACR credentials, if required.
+        - name: <ACR_SECRET_NAME>

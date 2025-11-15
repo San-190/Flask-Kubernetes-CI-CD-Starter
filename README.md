@@ -1,56 +1,68 @@
-# Flask Kubernetes Azure Pipeline Starter
+# Flask Kubernetes Azure Pipelines Starter
 
-Este proyecto es una plantilla base para desplegar aplicaciones web desarrolladas en Python (Flask) utilizando Docker, Azure Pipelines y Kubernetes. Permite la integración continua y el despliegue automático en un clúster de Kubernetes, con imágenes almacenadas en Azure Container Registry (ACR).
+This project is a minimal starter template to deploy Python (Flask) web applications using Docker, Azure Pipelines CI/CD, and Kubernetes. Built images are intended to be stored in Azure Container Registry (ACR).
 
-## Características
+## Features
 
-- Aplicación web simple en Flask.
-- Dockerización lista para producción.
-- Pipeline CI/CD automatizado con Azure Pipelines.
-- Despliegue automatizado en Kubernetes.
-- Gestión de secretos para acceso a imágenes privadas en ACR.
+- Simple Flask application.
+- Dockerfile for containerizing the app.
+- Azure Pipelines configuration to build and push Docker images to ACR.
+- Kubernetes manifest for deployment (with placeholders for image and secrets).
 
-
-## Estructura del proyecto
+## Project structure
 
 ```
 .
-├── azure-pipelines.yml      # Definición del pipeline CI/CD
-├── Dockerfile               # Dockerización de la app Flask
+├── azure-pipelines.yml      # CI/CD pipeline (contains placeholders to configure)
+├── Dockerfile               # Dockerfile for the Flask app
 ├── k8s/
-│   └── deployment.yaml      # Manifiesto de despliegue en Kubernetes
+│   └── deployment.yml       # Kubernetes Deployment manifest (uses placeholders)
 ├── src/
-│   ├── app.py               # Código fuente de la aplicación Flask
-│   └── requirements.txt     # Dependencias de Python
-├── static/                  # Recursos estáticos (si se requieren)
-└── templates/               # Plantillas HTML (si se requieren)
+│   ├── app.py               # Flask application
+│   └── requirements.txt     # Python dependencies
+├── static/                  # Static files (optional)
+└── templates/               # HTML templates (optional)
 ```
 
-> Las carpetas `static/` y `templates/` pueden utilizarse si la aplicación Flask lo requiere para archivos estáticos o plantillas HTML.
+## Important notes about placeholders
 
-## Despliegue
+- The pipeline and k8s manifests include placeholders and must be configured before use.
+  - azure-pipelines.yml contains variables such as `imageName`, `registry`, and the service-connection name for pushing to ACR. Also update Azure subscription, resource group and cluster names for the Kubernetes task.
+  - k8s/deployment.yml includes placeholders like `<ACR_REGISTRY>/<IMAGE_NAME>:<IMAGE_TAG>` for the image and `<ACR_SECRET_NAME>` for the imagePullSecret.
+- Do NOT hardcode secrets in files. Use pipeline variables, Variable Groups, or Azure Key Vault for credentials.
+- If your repository uses `main` instead of `master`, update the pipeline trigger accordingly.
 
-El pipeline de Azure realiza los siguientes pasos:
+## Deployment flow (CI/CD)
 
-1. Instala dependencias de Python.
-2. Construye la imagen Docker y la sube a Azure Container Registry.
-3. Actualiza el manifiesto de Kubernetes con la nueva imagen.
-4. Aplica el manifiesto al clúster de Kubernetes.
+1. Push to the configured branch (pipeline trigger).
+2. Azure Pipelines installs dependencies and builds the Docker image.
+3. The image is pushed to the specified ACR repository.
+4. The pipeline updates the k8s manifest image reference and applies it to the target cluster (kubectl apply), performing the rollout.
 
+## Local development and testing
 
-## Requisitos
+- Install dependencies:
+  - python -m pip install -r src/requirements.txt
+- Run locally:
+  - python src/app.py  (the app listens on 0.0.0.0:5000)
+- Build and run with Docker:
+  - docker build -t my-app -f Dockerfile .
+  - docker run -p 5000:5000 my-app
 
-- Azure DevOps y Azure Pipelines configurados.
-- Azure Container Registry (ACR).
-- Clúster de Kubernetes (AKS o compatible).
-- Docker y kubectl instalados localmente para despliegues manuales.
+## Recommendations
 
-## Personalización
+- The Docker image runs the Flask development server. For production, replace the CMD with a production WSGI server (e.g., gunicorn).
+- Add a `.dockerignore` to avoid copying unnecessary files into the image.
+- Pin dependency versions in `src/requirements.txt`.
+- Add liveness/readiness probes and resource requests/limits in the k8s manifest for production workloads.
 
-- Modifica `src/app.py` para cambiar la lógica de la aplicación.
-- Ajusta el número de réplicas o recursos en `k8s/deployment.yaml`.
-- Agrega más dependencias en `src/requirements.txt` según tus necesidades.
+## Requirements
+
+- Azure DevOps with Azure Pipelines configured.
+- Azure Container Registry (ACR) or another container registry.
+- Kubernetes cluster (AKS or compatible).
+- Docker and kubectl for local testing or manual deployments.
 
 ---
 
-Desarrollado para fines educativos.
+Developed for educational purposes.
